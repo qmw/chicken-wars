@@ -1,5 +1,7 @@
 package dev.piotr.chickenwars;
 
+import java.util.function.Consumer;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
@@ -19,6 +21,7 @@ import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 
 /** An egg laid mid-flight. What hatches depends on the chicken that laid it. */
 public class WarEggEntity extends ThrowableItemProjectile {
@@ -46,22 +49,27 @@ public class WarEggEntity extends ThrowableItemProjectile {
 
 	@Override
 	protected void onHit(HitResult result) {
-		if (!(level() instanceof ServerLevel level)) {
-			return;
+		if (level() instanceof ServerLevel level) {
+			applyEffect(level, position(), getOwner(), chickenType);
+			discard();
 		}
-		switch (chickenType) {
-			case EXPLOSIVE -> level.explode(this, getX(), getY(), getZ(), 2.5F, Level.ExplosionInteraction.TNT);
-			case TERRA -> terraBlob(level);
-			case FROST -> freeze(level);
-			case SPAWNER -> spawnMobs(level);
-			case MIDAS -> midasTouch(level);
-		}
-		discard();
 	}
 
-	private void terraBlob(ServerLevel level) {
+	/** The payload, shared by eggs and the chicken's own landing. */
+	public static void applyEffect(ServerLevel level, Vec3 pos, Entity owner, ChickenType type) {
+		BlockPos center = BlockPos.containing(pos.x, pos.y, pos.z);
+		switch (type) {
+			case EXPLOSIVE -> level.explode(owner, pos.x, pos.y, pos.z, 2.5F, Level.ExplosionInteraction.TNT);
+			case TERRA -> terraBlob(level, center);
+			case FROST -> freeze(level, center, owner);
+			case SPAWNER -> spawnMobs(level, center);
+			case MIDAS -> midasTouch(level, center);
+		}
+	}
+
+	private static void terraBlob(ServerLevel level, BlockPos center) {
 		Block material = TERRA_BLOCKS[level.getRandom().nextInt(TERRA_BLOCKS.length)];
-		forSphere(2.5, pos -> {
+		forSphere(center, 2.5, pos -> {
 			BlockState state = level.getBlockState(pos);
 			if (state.isAir() || state.canBeReplaced()) {
 				level.setBlockAndUpdate(pos, material.defaultBlockState());
@@ -69,8 +77,8 @@ public class WarEggEntity extends ThrowableItemProjectile {
 		});
 	}
 
-	private void freeze(ServerLevel level) {
-		forSphere(3.0, pos -> {
+	private static void freeze(ServerLevel level, BlockPos center, Entity owner) {
+		forSphere(center, 3.0, pos -> {
 			BlockState state = level.getBlockState(pos);
 			if (state.is(Blocks.WATER)) {
 				level.setBlockAndUpdate(pos, Blocks.ICE.defaultBlockState());
@@ -81,23 +89,23 @@ public class WarEggEntity extends ThrowableItemProjectile {
 			}
 		});
 		for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class,
-				new AABB(blockPosition()).inflate(4.0), e -> e != getOwner() && e.isAlive())) {
+				new AABB(center).inflate(4.0), e -> e != owner && e.isAlive())) {
 			target.setTicksFrozen(Math.max(target.getTicksFrozen(), 400));
 		}
 	}
 
-	private void spawnMobs(ServerLevel level) {
+	private static void spawnMobs(ServerLevel level, BlockPos center) {
 		RandomSource random = level.getRandom();
 		int count = 1 + random.nextInt(3);
 		for (int i = 0; i < count; i++) {
 			EntityType<?> type = SPAWN_POOL[random.nextInt(SPAWN_POOL.length)];
-			type.spawn(level, blockPosition(), EntitySpawnReason.MOB_SUMMONED);
+			type.spawn(level, center, EntitySpawnReason.MOB_SUMMONED);
 		}
 	}
 
-	private void midasTouch(ServerLevel level) {
+	private static void midasTouch(ServerLevel level, BlockPos center) {
 		RandomSource random = level.getRandom();
-		forSphere(2.0, pos -> {
+		forSphere(center, 2.0, pos -> {
 			BlockState state = level.getBlockState(pos);
 			if (!state.isAir() && state.getDestroySpeed(level, pos) >= 0.0F && state.isSolidRender()) {
 				Block treasure = random.nextFloat() < 0.1F ? Blocks.DIAMOND_BLOCK : Blocks.GOLD_BLOCK;
@@ -106,8 +114,7 @@ public class WarEggEntity extends ThrowableItemProjectile {
 		});
 	}
 
-	private void forSphere(double radius, java.util.function.Consumer<BlockPos> action) {
-		BlockPos center = blockPosition();
+	private static void forSphere(BlockPos center, double radius, Consumer<BlockPos> action) {
 		int r = (int) Math.ceil(radius);
 		for (BlockPos pos : BlockPos.betweenClosed(center.offset(-r, -r, -r), center.offset(r, r, r))) {
 			if (pos.distSqr(center) <= radius * radius) {

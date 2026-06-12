@@ -3,6 +3,7 @@ package dev.piotr.chickenwars;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.animal.chicken.Chicken;
@@ -15,12 +16,15 @@ import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.HitResult;
 
 /**
- * The invisible carrier the thrown chicken rides. Flies a ballistic arc,
- * lays three war eggs along the way, and on landing the chicken pays the price.
+ * The invisible carrier the thrown chicken rides — a bomber on a ballistic
+ * arc. It lays three war eggs along the way; on landing (or after 5 seconds,
+ * whichever comes first) the chicken dies and its payload triggers one last
+ * time at the crash site.
  */
 public class ChickenProjectileEntity extends ThrowableItemProjectile {
 	private static final int[] EGG_DROP_TICKS = {15, 30, 45};
-	private static final int MAX_LIFETIME_TICKS = 400;
+	// guaranteed end of mission: ~5 seconds, just past the longest flight
+	private static final int CRASH_DEADLINE_TICKS = 100;
 
 	private ChickenType chickenType = ChickenType.EXPLOSIVE;
 	private Chicken passengerChicken;
@@ -48,13 +52,20 @@ public class ChickenProjectileEntity extends ThrowableItemProjectile {
 	}
 
 	@Override
+	protected boolean canHitEntity(Entity entity) {
+		// never collide with the chicken riding this carrier — that "hit"
+		// was ending the flight after a few blocks
+		return !hasPassenger(entity) && super.canHitEntity(entity);
+	}
+
+	@Override
 	public void tick() {
 		super.tick();
 		if (!(level() instanceof ServerLevel serverLevel)) {
 			return;
 		}
 		age++;
-		if (age > MAX_LIFETIME_TICKS) {
+		if (age >= CRASH_DEADLINE_TICKS) {
 			land(serverLevel);
 			return;
 		}
@@ -73,7 +84,7 @@ public class ChickenProjectileEntity extends ThrowableItemProjectile {
 	private void layEgg(ServerLevel level) {
 		eggsLaid++;
 		WarEggEntity egg = new WarEggEntity(level, getX(), getY() - 0.3, getZ(), chickenType, getOwner());
-		// inherit a touch of forward momentum, then fall
+		// bombs away: inherit forward momentum, then fall
 		egg.setDeltaMovement(getDeltaMovement().scale(0.3).add(
 				(level.getRandom().nextDouble() - 0.5) * 0.1, -0.1,
 				(level.getRandom().nextDouble() - 0.5) * 0.1));
@@ -83,6 +94,8 @@ public class ChickenProjectileEntity extends ThrowableItemProjectile {
 	}
 
 	private void land(ServerLevel level) {
+		// the final bomb: the chicken's own payload goes off at the crash site
+		WarEggEntity.applyEffect(level, position(), getOwner(), chickenType);
 		if (passengerChicken != null && passengerChicken.isAlive()) {
 			passengerChicken.stopRiding();
 			// gravity always wins; the chicken's own death cry plays vanilla-style
