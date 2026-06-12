@@ -15,9 +15,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 
 public class ThrowableChickenItem extends Item {
-	// tuned by simulating vanilla projectile physics: max range ~105 blocks
-	// at a ~35° throw, while a flat throw only reaches ~25 — angle matters
-	public static final float THROW_SPEED = 2.4F;
+	// tuned by simulating vanilla projectile physics: max range ~70 blocks
+	// at a ~40° throw, while a flat throw only reaches ~20 — angle matters
+	public static final float THROW_SPEED = 1.8F;
 	private static final int COOLDOWN_TICKS = 30;
 
 	public final ChickenType type;

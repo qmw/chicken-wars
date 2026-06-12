@@ -96,10 +96,19 @@ public class ChickenProjectileEntity extends ThrowableItemProjectile {
 	private void land(ServerLevel level) {
 		// the final bomb: the chicken's own payload goes off at the crash site
 		WarEggEntity.applyEffect(level, position(), getOwner(), chickenType);
-		if (passengerChicken != null && passengerChicken.isAlive()) {
-			passengerChicken.stopRiding();
-			// gravity always wins; the chicken's own death cry plays vanilla-style
-			passengerChicken.hurtServer(level, damageSources().fall(), 100.0F);
+		// no survivors: the remembered chicken AND anything still riding
+		// (the field reference is lost across chunk reloads, the passenger
+		// list across odd dismounts — covering both guarantees the death)
+		java.util.List<Entity> doomed = new java.util.ArrayList<>(getPassengers());
+		if (passengerChicken != null && !doomed.contains(passengerChicken)) {
+			doomed.add(passengerChicken);
+		}
+		for (Entity entity : doomed) {
+			if (entity instanceof Chicken chicken && chicken.isAlive()) {
+				chicken.stopRiding();
+				// gravity always wins; the chicken's own death cry plays vanilla-style
+				chicken.hurtServer(level, damageSources().fall(), 100.0F);
+			}
 		}
 		discard();
 	}

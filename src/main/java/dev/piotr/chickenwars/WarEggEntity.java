@@ -78,18 +78,25 @@ public class WarEggEntity extends ThrowableItemProjectile {
 	}
 
 	private static void freeze(ServerLevel level, BlockPos center, Entity owner) {
-		forSphere(center, 3.0, pos -> {
+		// everyone caught in the blast gets sealed inside the blob: their own
+		// body blocks stay air pockets, everything around them becomes ice
+		java.util.List<LivingEntity> caught = level.getEntitiesOfClass(LivingEntity.class,
+				new AABB(center).inflate(4.5), e -> e != owner && e.isAlive());
+		forSphere(center, 4.0, pos -> {
+			AABB cell = new AABB(pos);
+			for (LivingEntity entity : caught) {
+				if (entity.getBoundingBox().intersects(cell)) {
+					return; // air pocket — trapped, not suffocated
+				}
+			}
 			BlockState state = level.getBlockState(pos);
-			if (state.is(Blocks.WATER)) {
-				level.setBlockAndUpdate(pos, Blocks.ICE.defaultBlockState());
-			} else if (state.is(Blocks.LAVA)) {
+			if (state.is(Blocks.LAVA)) {
 				level.setBlockAndUpdate(pos, Blocks.OBSIDIAN.defaultBlockState());
-			} else if (state.isAir() && level.getBlockState(pos.below()).isSolidRender()) {
-				level.setBlockAndUpdate(pos, Blocks.SNOW.defaultBlockState());
+			} else if (state.isAir() || state.is(Blocks.WATER) || state.canBeReplaced()) {
+				level.setBlockAndUpdate(pos, Blocks.ICE.defaultBlockState());
 			}
 		});
-		for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class,
-				new AABB(center).inflate(4.0), e -> e != owner && e.isAlive())) {
+		for (LivingEntity target : caught) {
 			target.setTicksFrozen(Math.max(target.getTicksFrozen(), 400));
 		}
 	}
