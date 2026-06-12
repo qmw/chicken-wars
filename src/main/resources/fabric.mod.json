@@ -1,0 +1,28 @@
+{
+	"schemaVersion": 1,
+	"id": "chickenwars",
+	"version": "${version}",
+	"name": "Chicken Wars",
+	"description": "Throwable chickens that arc a hundred blocks, lay tactical eggs mid-flight, and make the ultimate sacrifice on landing.",
+	"authors": [
+		"Piotr"
+	],
+	"contact": {},
+	"license": "MIT",
+	"icon": "assets/chickenwars/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"dev.piotr.chickenwars.ChickenWars"
+		],
+		"client": [
+			"dev.piotr.chickenwars.client.ChickenWarsClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~26.1.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

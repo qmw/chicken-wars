@@ -1,0 +1,9 @@
+{
+  "entity.chickenwars.chicken_projectile": "Airborne Chicken",
+  "entity.chickenwars.war_egg": "War Egg",
+  "item.chickenwars.explosive_chicken": "Explosive Chicken",
+  "item.chickenwars.frost_chicken": "Frost Chicken",
+  "item.chickenwars.midas_chicken": "Midas Chicken",
+  "item.chickenwars.spawner_chicken": "Spawner Chicken",
+  "item.chickenwars.terra_chicken": "Terra Chicken"
+}
